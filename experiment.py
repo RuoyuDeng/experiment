@@ -3,6 +3,8 @@ import argparse
 import re
 import random
 import time
+from collections import defaultdict as ddict
+import subprocess
 
 def get_comb(params_str):
     '''
@@ -25,21 +27,45 @@ def get_comb(params_str):
     return result 
 
 def get_params(exp_num, seed, baseline_num, comb_params, param_pool):
-    if exp_num 
+    '''
+    exp_num: The number of experiments to run
+    seed: The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment
+    baseline_num: The number of baseline exps to run on 1 seed
+    comb_params: The params to make combinations from, must be in form of '-param1 -param2 -param3....'
+    param_pool: The path to params to use, the first line is the baseline, the following stores the param (every single line stores one param) to use
+    '''
+    s2p_map = {}
+    for _ in range(exp_num):
+        default_seed = random.randint(0,50000) if seed == -1 else seed
+        seed_suffix = f"-seed {default_seed}"
+        with open(param_pool,"r") as f:
+            lines = f.readlines()
+        baseline = lines[0]
+        # add baselines to cmds
+        cmds = [f"{baseline} {seed_suffix}" for _ in range(baseline_num)]
 
+        # only params are created differently if comb_params is given as non-empty str
+        if comb_params == "":
+            params = [l.strip("\n") for l in lines[1:]]
+        else:
+            params = get_comb(comb_params)
+            
+        params_seed = [f"{p} {seed_suffix}" for p in params]
+        cmds += [f"{baseline} {p_s}" for p_s in params_seed]
+        s2p_map[seed_suffix] = cmds
+    return s2p_map
 
-
-    return
 def free_gpus():
     return 
 
 def run_exp():
+    # we want to run screen -dmSL exp_? bash -c "python run.py -param1 -param2 ..."
     return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-param_pool", type=str, default="./params/params_pool.txt", help="The path to param_pool, the first line is the baseline, the following stores the param (single one) to use")
+    parser.add_argument("-param_pool", type=str, default="./params/params_pool.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
     parser.add_argument("-seed", type=int, default=-1, help="The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment")
     parser.add_argument("-exp_num", type=1, default=1, help="The number of experiments to run")
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
@@ -55,8 +81,8 @@ if __name__ == "__main__":
     gap = args.check_gap
     comb_params = args.comb_params
 
-    # params: dict s.t. k: seed, v: a list of cmd line to run
-    # ex) ["python run.py -param1 -param2 -param3..."]
+    # params: dict s.t. k: seed, v: a list of cmd line to run, with seed added
+    # ex) ["run.py -param1 -param2 -param3..."]
     params = get_params(exp_num, seed, baseline_num, comb_params, param_pool)
 
     for seed, cmds in params.items():
