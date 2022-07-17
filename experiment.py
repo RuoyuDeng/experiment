@@ -1,10 +1,10 @@
-# screen -dmSL exp_9 bash -c "python run.py -data subbkg_dd_an -gpu 9 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -gcn_drop 0.4 -seed 21897"
+
 import argparse
 import re
 import random
 import time
 from collections import defaultdict as ddict
-import subprocess
+from subprocess import PIPE,Popen,call
 
 def get_comb(params_str):
     '''
@@ -55,10 +55,40 @@ def get_params(exp_num, seed, baseline_num, comb_params, param_pool):
         s2p_map[seed_suffix] = cmds
     return s2p_map
 
-def free_gpus():
-    return 
+def get_free_gpus(gpu_num):
+    gpu_num = 10
+    pipe = Popen(["screen","-ls"], stdout=PIPE)
+    text = pipe.communicate()[0].decode("utf-8")
+    running_screens = text.split("\n")[1:-2]
+    all_gpus = set([i for i in range(gpu_num)])
 
-def run_exp():
+    if running_screens != []: # there are free gpus
+        cur_gpus = []
+        for l in running_screens:
+            gpu_idx = re.search(r".*exp_\d",l).group()[-1]
+            cur_gpus.append(int(gpu_idx))
+        cur_gpus = set(cur_gpus)
+        free_gpus = list(all_gpus.difference(cur_gpus))
+        return free_gpus
+    else: # no free gpus
+        return []
+
+def run_exp(cmds, gap, gpu_num):
+    while True:
+        free_gpus = get_free_gpus(gpu_num)
+        free_gpusn = len(free_gpus)
+        if free_gpus != []:
+            for gpuidx in free_gpus:
+                cmd = cmds[0]
+                gpu_match = re.search(r" -gpu \d ",cmd).group()
+                cmd_pre, cmd_post = cmd.split(gpu_match)
+                exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}"
+                call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd])
+                # screen -dmSL exp_9 bash -c "python run.py -data subbkg_dd_an -gpu 9 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -gcn_drop 0.4 -seed 21897"
+            cmds = cmds[free_gpusn:]
+                
+        time.sleep(gap)
+
     # we want to run screen -dmSL exp_? bash -c "python run.py -param1 -param2 ..."
     return
 
@@ -71,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
     parser.add_argument("-comb_params", type=str, default="", help="The params to make combinations from, must be in form of '-param1 -param2 -param3....'")
     parser.add_argument("-baseline_num", type=int, deafult=1, help="The number of baselines to run on 1 seed")
-
+    parser.add_argument("-gpus", type=int, default=10, help="The number of available GPUs to use in server")
     args = parser.parse_args()
 
     param_pool = args.param_pool
@@ -80,6 +110,7 @@ if __name__ == "__main__":
     baseline_num = args.baseline_num
     gap = args.check_gap
     comb_params = args.comb_params
+    gpu_num = args.gpus
 
     # params: dict s.t. k: seed, v: a list of cmd line to run, with seed added
     # ex) ["run.py -param1 -param2 -param3..."]
@@ -87,5 +118,5 @@ if __name__ == "__main__":
 
     for seed, cmds in params.items():
         print(f"Assigning GPUs to run experiment with seed: {seed}")
-        run_exp(cmds, gap)
+        run_exp(cmds, gap, gpu_num)
     print("All cmds are assigned to GPUs to run, waiting for results...")
