@@ -97,7 +97,6 @@ def run_exp(cmds, gap, gpu_num):
         cmd_left = len(cmds)
         if len(free_gpus) > cmd_left:
             free_gpus = free_gpus[:cmd_left] # match free_gpus with cmd_left, so that we do not waste time
-        free_gpusn = len(free_gpus)
 
         if free_gpus != []:
             for gpuidx in free_gpus:
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("-exp_num", type=int, default=1, help="The number of experiments to run")
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
     parser.add_argument("-comb_params", type=str, default="", help="The params to make combinations from, must be in form of '-param1 -param2 -param3....'")
-    parser.add_argument("-baseline_num", type=int, default=1, help="The number of baselines to run on 1 seed")
+    parser.add_argument("-baseline_num", type=int, default=0, help="The number of baselines to run on 1 seed")
     parser.add_argument("-only_base", action="store_true", help="Include this option if only want to run baseline")
     parser.add_argument("-gpus", type=int, default=10, help="The number of available GPUs to use in server")
     args = parser.parse_args()
@@ -144,19 +143,18 @@ if __name__ == "__main__":
         if cmds == []:
             print("Found empty cmd!")
             break
-        print(cmds)
         print(f"Assigning GPUs to run experiment with seed: {seed}")
         run_exp(cmds, gap, gpu_num)
     print("All cmds are assigned to GPUs to run, waiting for results...")
 
     # 1. Run 1 experiment without baseline:
-    # screen -dmSL main bash -c "python experiment.py -baseline_num 0"
-
-    # 2. Run 1 experiment with 1 baseline:
     # screen -dmSL main bash -c "python experiment.py"
 
-    # 3. Run experiment with only baseline:
+    # 2. Run 1 experiment with X number of baselines (including other params tunning):
+    # screen -dmSL main bash -c "python experiment.py -baseline_num X"
+
+    # 3. Run experiment with only baseline (without other params tunning):
     # screen -dmSL main bash -c "python experiment.py -only_base"
 
-    # 4. Run experiments in 3 diff seeds:
-    # screen -dmSL main bash -c "python experiment.py -exp_num 3"
+    # 4. Run experiments in 3 diff seeds with X number of baselines (to calculate avg):
+    # screen -dmSL main bash -c "python experiment.py -exp_num 3 -baseline_num X"
