@@ -26,13 +26,16 @@ def get_comb(params_str):
             base = f"{base} {params[j+1]}"
     return result 
 
-def get_params(exp_num, seed, baseline_num, comb_params, param_pool):
+def get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base):
     '''
     exp_num: The number of experiments to run
     seed: The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment
     baseline_num: The number of baseline exps to run on 1 seed
     comb_params: The params to make combinations from, must be in form of '-param1 -param2 -param3....'
     param_pool: The path to params to use, the first line is the baseline, the following stores the param (every single line stores one param) to use
+    only_base: Set to true if only want to run baseline
+
+    return: a seed to params map (s2p)
     '''
     s2p_map = {}
     for _ in range(exp_num):
@@ -41,9 +44,11 @@ def get_params(exp_num, seed, baseline_num, comb_params, param_pool):
         with open(param_pool,"r") as f:
             lines = f.readlines()
         baseline = lines[0]
-        # add baselines to cmds
+        # add baselines to cmds (if there is one)
         cmds = [f"{baseline} {seed_suffix}" for _ in range(baseline_num)]
-
+        if only_base:
+            # no need to operate on the rest if only want the baselines
+            break
         # only params are created differently if comb_params is given as non-empty str
         if comb_params == "":
             params = [l.strip("\n") for l in lines[1:]]
@@ -61,8 +66,9 @@ def get_free_gpus(gpu_num):
     return: the list of free gpu idx
     '''
     gpu_num = 10
+    # get output from stdout
     pipe = Popen(["screen","-ls"], stdout=PIPE)
-    text = pipe.communicate()[0].decode("utf-8")
+    text = pipe.communicate()[0].decode("utf-8") # index 0 -> stdout of PIPE
     running_screens = text.split("\n")[1:-2]
     all_gpus = set([i for i in range(gpu_num)])
 
@@ -110,12 +116,13 @@ def run_exp(cmds, gap, gpu_num):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-param_pool", type=str, default="./params/params_pool.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
+    parser.add_argument("-param_pool", type=str, default="./params/params_pool2.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
     parser.add_argument("-seed", type=int, default=-1, help="The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment")
     parser.add_argument("-exp_num", type=1, default=1, help="The number of experiments to run")
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
     parser.add_argument("-comb_params", type=str, default="", help="The params to make combinations from, must be in form of '-param1 -param2 -param3....'")
     parser.add_argument("-baseline_num", type=int, deafult=1, help="The number of baselines to run on 1 seed")
+    parser.add_argument("-only_base", action="store_true", help="Include this option if only want to run baseline")
     parser.add_argument("-gpus", type=int, default=10, help="The number of available GPUs to use in server")
     args = parser.parse_args()
 
@@ -126,12 +133,25 @@ if __name__ == "__main__":
     gap = args.check_gap
     comb_params = args.comb_params
     gpu_num = args.gpus
+    only_base = args.only_base
 
     # params: dict s.t. k: seed, v: a list of cmd line to run, with seed added
     # ex) ["run.py -param1 -param2 -param3..."]
-    params = get_params(exp_num, seed, baseline_num, comb_params, param_pool)
+    params = get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base)
 
     for seed, cmds in params.items():
+        if cmds == []:
+            print("Found empty cmd!")
+            break
         print(f"Assigning GPUs to run experiment with seed: {seed}")
         run_exp(cmds, gap, gpu_num)
     print("All cmds are assigned to GPUs to run, waiting for results...")
+
+    # 1. Run 1 experiment without baseline:
+    # screen -dmSL main bash -c "python experiment.py -baseline_num 0"
+
+    # 2. Run 1 experiment with 1 baseline:
+    # screen -dmSL main bash -c "python experiment.py"
+
+    # 3. Run experiment with only baseline:
+    # screen -dmSL main bash -c "python experiment.py -only_base"
