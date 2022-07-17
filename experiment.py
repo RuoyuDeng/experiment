@@ -56,6 +56,10 @@ def get_params(exp_num, seed, baseline_num, comb_params, param_pool):
     return s2p_map
 
 def get_free_gpus(gpu_num):
+    '''
+    gpu_num: the total number of GPUs available in server or local
+    return: the list of free gpu idx
+    '''
     gpu_num = 10
     pipe = Popen(["screen","-ls"], stdout=PIPE)
     text = pipe.communicate()[0].decode("utf-8")
@@ -74,23 +78,34 @@ def get_free_gpus(gpu_num):
         return []
 
 def run_exp(cmds, gap, gpu_num):
+    '''
+    cmds: cmds to run
+    gap: the time diff between 2 checks of experiments
+    gpu_num: the total number of GPUs available in server or local
+
+    return: none, this function starts running experiments 
+    '''
     while True:
         free_gpus = get_free_gpus(gpu_num)
+        cmd_left = len(cmds)
+        if len(free_gpus) > cmd_left:
+            free_gpus = free_gpus[:cmd_left] # match free_gpus with cmd_left, so that we do not waste time
         free_gpusn = len(free_gpus)
+
         if free_gpus != []:
             for gpuidx in free_gpus:
                 cmd = cmds[0]
                 gpu_match = re.search(r" -gpu \d ",cmd).group()
                 cmd_pre, cmd_post = cmd.split(gpu_match)
-                exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}"
-                call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd])
-                # screen -dmSL exp_9 bash -c "python run.py -data subbkg_dd_an -gpu 9 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -gcn_drop 0.4 -seed 21897"
-            cmds = cmds[free_gpusn:]
+                exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}" 
+                call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd]) # call (screen -dmSL exp_9 bash -c "python [baseline] [params]")
+                time.sleep(3) # between every 2 calls, gap by 3 seconds to write log files
                 
+            cmds = cmds[free_gpusn:]
+            if cmds == []: # all cmds assigned to GPUs, we are good to go, otherwise, keep looping every 30mins
+                break
         time.sleep(gap)
 
-    # we want to run screen -dmSL exp_? bash -c "python run.py -param1 -param2 ..."
-    return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
