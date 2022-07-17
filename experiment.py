@@ -29,7 +29,7 @@ def get_comb(params_str):
 def get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base):
     '''
     exp_num: The number of experiments to run
-    seed: The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment
+    seed: The default seed to run the experiment on, if its -1, then we randomly generate seed for each experiment
     baseline_num: The number of baseline exps to run on 1 seed
     comb_params: The params to make combinations from, must be in form of '-param1 -param2 -param3....'
     param_pool: The path to params to use, the first line is the baseline, the following stores the param (every single line stores one param) to use
@@ -117,11 +117,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-param_pool", type=str, default="./params/params_pool2.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
-    parser.add_argument("-seed", type=int, default=-1, help="The deafult seed to run the experiment on, if its -1, then we randomly generate seed for each experiment")
-    parser.add_argument("-exp_num", type=1, default=1, help="The number of experiments to run")
+    parser.add_argument("-seed", type=int, default=-1, help="The default seed to run the experiment on, if its -1, then we randomly generate seed for each experiment")
+    parser.add_argument("-exp_num", type=int, default=1, help="The number of experiments to run")
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
     parser.add_argument("-comb_params", type=str, default="", help="The params to make combinations from, must be in form of '-param1 -param2 -param3....'")
-    parser.add_argument("-baseline_num", type=int, deafult=1, help="The number of baselines to run on 1 seed")
+    parser.add_argument("-baseline_num", type=int, default=1, help="The number of baselines to run on 1 seed")
     parser.add_argument("-only_base", action="store_true", help="Include this option if only want to run baseline")
     parser.add_argument("-gpus", type=int, default=10, help="The number of available GPUs to use in server")
     args = parser.parse_args()
