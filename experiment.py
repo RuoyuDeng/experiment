@@ -43,12 +43,13 @@ def get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base):
         seed_suffix = f"-seed {default_seed}"
         with open(param_pool,"r") as f:
             lines = f.readlines()
-        baseline = lines[0]
+        baseline = lines[0].strip("\n")
         # add baselines to cmds (if there is one)
         cmds = [f"{baseline} {seed_suffix}" for _ in range(baseline_num)]
         if only_base:
-            # no need to operate on the rest if only want the baselines
-            break
+            # no need to operate on the rest if only want the baselines, skip the rest by continue and go to next iteration
+            s2p_map[seed_suffix] = cmds
+            continue
         # only params are created differently if comb_params is given as non-empty str
         if comb_params == "":
             params = [l.strip("\n") for l in lines[1:]]
@@ -105,9 +106,9 @@ def run_exp(cmds, gap, gpu_num):
                 cmd_pre, cmd_post = cmd.split(gpu_match)
                 exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}" 
                 call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd]) # call (screen -dmSL exp_9 bash -c "python [baseline] [params]")
+                cmds = cmds[1:] # reduce the cmds left to run by 1
                 time.sleep(3) # between every 2 calls, gap by 3 seconds to write log files
                 
-            cmds = cmds[free_gpusn:]
             if cmds == []: # all cmds assigned to GPUs, we are good to go, otherwise, keep looping every 30mins
                 break
         time.sleep(gap)
@@ -143,6 +144,7 @@ if __name__ == "__main__":
         if cmds == []:
             print("Found empty cmd!")
             break
+        print(cmds)
         print(f"Assigning GPUs to run experiment with seed: {seed}")
         run_exp(cmds, gap, gpu_num)
     print("All cmds are assigned to GPUs to run, waiting for results...")
