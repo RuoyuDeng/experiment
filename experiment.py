@@ -157,3 +157,6 @@ if __name__ == "__main__":
 
     # 3. Run experiment with only baseline:
     # screen -dmSL main bash -c "python experiment.py -only_base"
+
+    # 4. Run experiments in 3 diff seeds:
+    # screen -dmSL main bash -c "python experiment.py -exp_num 3"
