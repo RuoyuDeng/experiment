@@ -1,19 +1,10 @@
 ###################################### visulization related functions, to use in ipynb #####################################
-# TODO: implement the visualization of dataframe here (and diagrams)
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import re
 from collections import defaultdict as ddict
 
-
-def count_occurences(list,value):
-    '''
-    list: the list to search on
-    value: the value we want to search on
-    return: the list containing
-    '''
 # highlight related functions
 
 # FIXME: 1. float(tokens_s[i][0]) we want max for TCs / min for PPL
@@ -139,6 +130,8 @@ def get_row(csv_path, csv_name, f2p_map, max_measures):
     df = df[:-1] # remove test row
     best_row = df.iloc[df["PPL"].idxmin()].rename(params)
     best_row['best_epoch'] = test_row["Epoch"]
+
+    # including the max measures and their corresponding epoches
     for col in max_measures:
         best_row[f"{col}_max"] = df[col].max()
         best_row[f"{col}_max_epoch"] = df.iloc[df[col].idxmax()]["Epoch"]

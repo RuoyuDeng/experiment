@@ -1,4 +1,3 @@
-
 import argparse
 import re
 import random
@@ -66,23 +65,24 @@ def get_free_gpus(gpu_num):
     gpu_num: the total number of GPUs available in server or local
     return: the list of free gpu idx
     '''
-    gpu_num = 10
     # get output from stdout
     pipe = Popen(["screen","-ls"], stdout=PIPE)
     text = pipe.communicate()[0].decode("utf-8") # index 0 -> stdout of PIPE
     running_screens = text.split("\n")[1:-2]
     all_gpus = set([i for i in range(gpu_num)])
 
-    if running_screens != []: # there are free gpus
-        cur_gpus = []
+    if running_screens != []: # there are running gpus
+        running_gpus = []
         for l in running_screens:
-            gpu_idx = re.search(r".*exp_\d",l).group()[-1]
-            cur_gpus.append(int(gpu_idx))
-        cur_gpus = set(cur_gpus)
-        free_gpus = list(all_gpus.difference(cur_gpus))
+            gpu_match = re.search(r".*exp_\d",l)
+            if gpu_match:
+                gpu_idx = gpu_match.group()[-1]
+                running_gpus.append(int(gpu_idx))
+        running_gpus = set(running_gpus)
+        free_gpus = list(all_gpus.difference(running_gpus))
         return free_gpus
-    else: # no free gpus
-        return []
+    else: # no running gpus, all free
+        return [i for i in range(gpu_num)]
 
 def run_exp(cmds, gap, gpu_num):
     '''
@@ -101,7 +101,7 @@ def run_exp(cmds, gap, gpu_num):
         if free_gpus != []:
             for gpuidx in free_gpus:
                 cmd = cmds[0]
-                gpu_match = re.search(r" -gpu \d ",cmd).group()
+                gpu_match = re.search(r" -gpu \d ",cmd).group() # might need to be changed for future experiments
                 cmd_pre, cmd_post = cmd.split(gpu_match)
                 exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}" 
                 call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd]) # call (screen -dmSL exp_9 bash -c "python [baseline] [params]")
@@ -116,7 +116,7 @@ def run_exp(cmds, gap, gpu_num):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-param_pool", type=str, default="./params/params_pool2.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
+    parser.add_argument("-param_pool", type=str, default="./params/params_pool.txt", help="The path to params to use, the first line is the baseline, the following stores the param (single one) to use")
     parser.add_argument("-seed", type=int, default=-1, help="The default seed to run the experiment on, if its -1, then we randomly generate seed for each experiment")
     parser.add_argument("-exp_num", type=int, default=1, help="The number of experiments to run")
     parser.add_argument("-check_gap", type=int, default=1800, help="The time gap in sec between checks on whether running experiment is done")
@@ -157,4 +157,4 @@ if __name__ == "__main__":
     # screen -dmSL main bash -c "python experiment.py -only_base"
 
     # 4. Run experiments in 3 diff seeds with X number of baselines (to calculate avg):
-    # screen -dmSL main bash -c "python experiment.py -exp_num 3 -baseline_num X"
+    # screen -dmSL main bash -c "python experiment.py -exp_num 4 -baseline_num 3"
