@@ -2,6 +2,7 @@ import argparse
 import re
 import random
 import time
+import json
 from collections import defaultdict as ddict
 from subprocess import PIPE,Popen,call
 
@@ -106,7 +107,7 @@ def run_exp(cmds, gap, gpu_num):
                 exec_cmd = f"python {cmd_pre} -gpu {gpuidx} {cmd_post}" 
                 call(["screen","-dmSL",f"exp_{gpuidx}","bash","-c",exec_cmd]) # call (screen -dmSL exp_9 bash -c "python [baseline] [params]")
                 cmds = cmds[1:] # reduce the cmds left to run by 1
-                time.sleep(3) # between every 2 calls, gap by 3 seconds to write log files
+                time.sleep(6) # between every 2 calls, gap by 3 seconds to write log files
                 
             if cmds == []: # all cmds assigned to GPUs, we are good to go, otherwise, keep looping every 30mins
                 break
@@ -124,8 +125,10 @@ if __name__ == "__main__":
     parser.add_argument("-baseline_num", type=int, default=0, help="The number of baselines to run on 1 seed")
     parser.add_argument("-only_base", action="store_true", help="Include this option if only want to run baseline")
     parser.add_argument("-gpus", type=int, default=10, help="The number of available GPUs to use in server")
+    parser.add_argument("-missing", type=str, default="", help='The missing experiments to run')
     args = parser.parse_args()
 
+    missing_exps = args.missing
     param_pool = args.param_pool
     seed = args.seed
     exp_num = args.exp_num
@@ -134,10 +137,16 @@ if __name__ == "__main__":
     comb_params = args.comb_params
     gpu_num = args.gpus
     only_base = args.only_base
+    
 
-    # params: dict s.t. k: seed, v: a list of cmd line to run, with seed added
-    # ex) ["run.py -param1 -param2 -param3..."]
-    params = get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base)
+    if missing_exps != "":
+        with open("missing_exp.json","r") as f:
+            params = json.load(f)
+            
+    else:
+        # params: dict s.t. k: seed, v: a list of cmd line to run, with seed added
+        # ex) ["run.py -param1 -param2 -param3..."]
+        params = get_params(exp_num, seed, baseline_num, comb_params, param_pool, only_base)
 
     for seed, cmds in params.items():
         if cmds == []:
@@ -148,7 +157,7 @@ if __name__ == "__main__":
     print("All cmds are assigned to GPUs to run, waiting for results...")
 
     # 1. Run 1 experiment without baseline:
-    # screen -dmSL main bash -c "python experiment.py"
+    # screen -dmSL main bash -c "python experiment.py -seed 14557 "
 
     # 2. Run 1 experiment with X number of baselines (including other params tunning):
     # screen -dmSL main bash -c "python experiment.py -baseline_num X"
@@ -158,3 +167,9 @@ if __name__ == "__main__":
 
     # 4. Run experiments in 3 diff seeds with X number of baselines (to calculate avg):
     # screen -dmSL main bash -c "python experiment.py -exp_num 4 -baseline_num 3"
+    # screen -dmSL main bash -c "python experiment.py -missing ./missing_exp.json"
+
+    # screen -dmSL exp_0 bash -c "python run.py -data subbkg_dd_an -gpu 0 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -init_dim 512 -seed 14557"
+    # screen -dmSL exp_1 bash -c "python run.py -data subbkg_dd_an -gpu 0 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -hid_drop 0.1 -seed 20284"
+    # screen -dmSL exp_2 bash -c "python run.py -data subbkg_dd_an -gpu 0 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -hid_drop 0.2 -seed 20284"
+    # screen -dmSL exp_3 bash -c "python run.py -data subbkg_dd_an -gpu 0 -name subbkg_dd_nll -nodedoc -diffa -within_type -anchor CCS -hid_drop 0.4 -seed 31388"
