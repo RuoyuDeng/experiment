@@ -2,6 +2,8 @@
 SESSION_NAME=exp_
 COMMAND=python
 i=0
+
+
 # Standard way of reading a file line by line
 while IFS= read -r line; do
 	# just to run 10 python script
